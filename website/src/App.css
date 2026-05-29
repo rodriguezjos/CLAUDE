@@ -1,0 +1,176 @@
+/* ── PAGE ── */
+.page { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── NAVBAR ── */
+.navbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--navy);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
+.nav-inner {
+  max-width: 1200px; margin: 0 auto;
+  padding: 0 24px;
+  height: 68px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px; color: var(--white);
+}
+.logo-abbr {
+  font-size: 22px; font-weight: 800; letter-spacing: 2px;
+  color: var(--gold);
+}
+.logo-abbr.small { font-size: 18px; }
+.logo-full {
+  font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.75);
+  display: none;
+}
+@media (min-width: 900px) { .logo-full { display: block; } }
+
+.nav-links {
+  display: flex; align-items: center; gap: 4px; list-style: none;
+}
+.nav-links a {
+  color: rgba(255,255,255,0.82); font-size: 14px; font-weight: 500;
+  padding: 8px 14px; border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-links a:hover { background: rgba(255,255,255,0.08); color: var(--white); }
+.nav-cta {
+  background: var(--gold) !important; color: var(--navy) !important;
+  font-weight: 700 !important; border-radius: 8px;
+}
+.nav-cta:hover { background: var(--gold2) !important; }
+
+.hamburger {
+  display: none; flex-direction: column; gap: 5px;
+  background: none; border: none; cursor: pointer; padding: 4px;
+}
+.hamburger span {
+  display: block; width: 24px; height: 2px;
+  background: var(--white); border-radius: 2px;
+}
+
+@media (max-width: 768px) {
+  .hamburger { display: flex; }
+  .nav-links {
+    display: none; position: absolute; top: 68px; left: 0; right: 0;
+    background: var(--navy2); flex-direction: column; gap: 0;
+    padding: 12px 0;
+  }
+  .nav-links.open { display: flex; }
+  .nav-links li { width: 100%; }
+  .nav-links a { display: block; padding: 12px 24px; border-radius: 0; }
+}
+
+/* ── HERO ── */
+.hero {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+  color: var(--white);
+  padding: 96px 24px;
+  display: flex; justify-content: center;
+}
+.hero-content { max-width: 1200px; width: 100%; display: flex; align-items: center; gap: 64px; flex-wrap: wrap; }
+.hero-tag {
+  font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 16px;
+}
+.hero-content h1 {
+  font-size: clamp(36px, 5vw, 58px); font-weight: 800; line-height: 1.1;
+  letter-spacing: -1px; margin-bottom: 20px;
+}
+.hero-sub {
+  font-size: 17px; line-height: 1.7; color: rgba(255,255,255,0.75);
+  max-width: 520px; margin-bottom: 36px;
+}
+.hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+
+.btn-primary {
+  background: var(--gold); color: var(--navy);
+  font-weight: 700; font-size: 15px;
+  padding: 13px 28px; border-radius: 10px;
+  transition: background 0.2s, transform 0.15s;
+  display: inline-block;
+}
+.btn-primary:hover { background: var(--gold2); transform: translateY(-1px); }
+
+.btn-secondary {
+  background: rgba(255,255,255,0.1); color: var(--white);
+  font-weight: 600; font-size: 15px;
+  padding: 13px 28px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2);
+  transition: background 0.2s;
+  display: inline-block;
+}
+.btn-secondary:hover { background: rgba(255,255,255,0.18); }
+
+.hero-visual {
+  flex: 0 0 auto; position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.hero-grid {
+  display: grid; grid-template-columns: repeat(3, 60px); gap: 20px;
+}
+.grid-dot {
+  width: 60px; height: 60px; border-radius: 14px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+}
+.grid-dot.accent { background: rgba(201,168,76,0.25); border-color: var(--gold); }
+.hero-badge {
+  position: absolute; bottom: -20px; right: -20px;
+  background: var(--white); color: var(--navy);
+  border-radius: 12px; padding: 10px 16px;
+  font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+.badge-icon { font-size: 20px; }
+
+@media (max-width: 768px) {
+  .hero { padding: 64px 24px; }
+  .hero-visual { display: none; }
+}
+
+/* ── SERVICES ── */
+.services { background: var(--light); padding: 96px 24px; }
+.section-inner { max-width: 1200px; margin: 0 auto; text-align: center; }
+.section-tag {
+  font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 12px;
+}
+.section-inner h2 { font-size: clamp(28px, 4vw, 42px); font-weight: 800; color: var(--navy); margin-bottom: 14px; }
+.section-sub { font-size: 16px; color: var(--muted); max-width: 520px; margin: 0 auto 56px; line-height: 1.7; }
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px; text-align: left;
+}
+.service-card {
+  background: var(--white); border-radius: var(--radius);
+  padding: 32px 28px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  border: 1px solid #e2e8f0;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.service-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+.service-icon { font-size: 32px; display: block; margin-bottom: 16px; }
+.service-card h3 { font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+.service-card p { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+/* ── CTA ── */
+.cta-section {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+  padding: 96px 24px; color: var(--white);
+}
+.cta-inner { text-align: center; }
+.cta-inner h2 { font-size: clamp(26px, 4vw, 40px); font-weight: 800; margin-bottom: 14px; }
+.cta-inner p { font-size: 16px; color: rgba(255,255,255,0.72); margin-bottom: 36px; }
+
+/* ── FOOTER ── */
+.footer { background: var(--navy); padding: 28px 24px; }
+.footer-inner {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  justify-content: center; text-align: center;
+}
+.footer p { font-size: 13px; color: rgba(255,255,255,0.45); }
