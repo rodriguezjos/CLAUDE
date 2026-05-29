@@ -1,0 +1,19 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:   #0b1f3a;
+  --navy2:  #112d52;
+  --gold:   #c9a84c;
+  --gold2:  #e8c96a;
+  --light:  #f5f7fa;
+  --muted:  #64748b;
+  --white:  #ffffff;
+  --radius: 12px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #1e293b;
+  background: var(--white);
+  -webkit-font-smoothing: antialiased;
+}
+
+body { margin: 0; }
+a { text-decoration: none; color: inherit; }
