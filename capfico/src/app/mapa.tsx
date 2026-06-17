@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { Component, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -16,7 +16,39 @@ const MALLORCA: Region = {
   longitudeDelta: 1.0,
 };
 
+// Captura errors de mòduls natius no disponibles (p.ex. Expo Go sense react-native-maps)
+class MapErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { error: boolean }
+> {
+  state = { error: false };
+  static getDerivedStateFromError() { return { error: true }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={s.fallback}>
+          <Text style={s.fallbackEmoji}>🗺️</Text>
+          <Text style={s.fallbackTitol}>Mapa no disponible</Text>
+          <Text style={s.fallbackText}>
+            El mapa interactiu requereix l'app completa (development build).{'\n'}
+            La Col·lecció i el Perfil funcionen perfectament.
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function MapaScreen() {
+  return (
+    <MapErrorBoundary>
+      <MapaContingut />
+    </MapErrorBoundary>
+  );
+}
+
+function MapaContingut() {
   const { visitadesIds, marcarVisitada } = useProgresContext();
   const mapRef = useRef<MapView>(null);
   const [ubicacio, setUbicacio] = useState<Location.LocationObject | null>(null);
@@ -24,26 +56,19 @@ export default function MapaScreen() {
   const [calaProxima, setCalaProxima] = useState<Cala | null>(null);
   const [checkinNom, setCheckinNom] = useState<string | null>(null);
 
-  // Demanar permisos i seguir ubicació
   useEffect(() => {
     let sub: Location.LocationSubscription | null = null;
-
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setPermisRefusat(true);
-        return;
-      }
+      if (status !== 'granted') { setPermisRefusat(true); return; }
       sub = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, distanceInterval: 5 },
         (loc) => setUbicacio(loc),
       );
     })();
-
     return () => { sub?.remove(); };
   }, []);
 
-  // Detectar si l'usuari és dins el radi d'una cala no visitada
   useEffect(() => {
     if (!ubicacio) return;
     const { latitude, longitude } = ubicacio.coords;
@@ -87,7 +112,6 @@ export default function MapaScreen() {
         })}
       </MapView>
 
-      {/* Banner: cala propera no visitada */}
       {calaProxima && (
         <View style={s.banner}>
           <View style={s.bannerInfo}>
@@ -100,14 +124,12 @@ export default function MapaScreen() {
         </View>
       )}
 
-      {/* Confirmació de check-in */}
       {checkinNom && (
         <View style={s.confirmacio}>
           <Text style={s.confirmacioText}>✅ {checkinNom} visitada!</Text>
         </View>
       )}
 
-      {/* Avís si no hi ha permisos */}
       {permisRefusat && (
         <View style={s.avis}>
           <Text style={s.avisText}>
@@ -122,6 +144,17 @@ export default function MapaScreen() {
 const s = StyleSheet.create({
   container: { flex: 1 },
   mapa: { flex: 1 },
+
+  fallback: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: '#F5F7FA',
+  },
+  fallbackEmoji: { fontSize: 52, marginBottom: 16 },
+  fallbackTitol: { fontSize: 20, fontWeight: '700', color: '#1A1A2E', marginBottom: 10, textAlign: 'center' },
+  fallbackText: { fontSize: 14, color: '#888', textAlign: 'center', lineHeight: 22 },
 
   banner: {
     position: 'absolute',
