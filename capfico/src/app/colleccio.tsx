@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, ScrollView, Pressable } from 'react-native';
+import { StyleSheet, View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useProgres, ProgresStat } from '../store/progress';
 import { TOTES_LES_CALAS } from '../data/calas';
