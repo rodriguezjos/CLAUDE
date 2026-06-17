@@ -1,11 +1,12 @@
 import { StyleSheet, View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useProgres, ProgresStat } from '../store/progress';
+import { useProgresContext } from '../store/ProgresContext';
+import { ProgresStat } from '../store/progress';
 import { TOTES_LES_CALAS } from '../data/calas';
 import { Cala } from '../data/types';
 
 export default function ColleccioScreen() {
-  const { progres, visitadesIds, carregant } = useProgres();
+  const { progres, visitadesIds, carregant } = useProgresContext();
 
   if (carregant) {
     return (

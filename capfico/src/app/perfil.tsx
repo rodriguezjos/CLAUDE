@@ -1,9 +1,9 @@
 import { StyleSheet, View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useProgres } from '../store/progress';
+import { useProgresContext } from '../store/ProgresContext';
 
 export default function PerfilScreen() {
-  const { progres, carregant } = useProgres();
+  const { progres, carregant } = useProgresContext();
 
   if (carregant) {
     return (
