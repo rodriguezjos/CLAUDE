@@ -1,152 +1,299 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TOTES_LES_CALAS } from '../data/calas';
 import { ZONES, zonaById } from '../data/zones';
-import { Cala } from '../data/types';
+import { ZonaId } from '../data/types';
 import { useProgresContext } from '../store/ProgresContext';
 
-// Fallback web: llista interactiva amb simulació de check-in (el mapa natiu funciona al mòbil)
+declare global { interface Window { L: any } }
+
+const DIF_COLOR: Record<string, string> = {
+  'fàcil': '#27AE60',
+  'moderada': '#E67E22',
+  'difícil': '#E74C3C',
+};
+
 export default function MapaScreen() {
   const { visitadesIds, marcarVisitada, desmarcarVisitada } = useProgresContext();
   const [checkinNom, setCheckinNom] = useState<string | null>(null);
+  const [activeZones, setActiveZones] = useState<Set<ZonaId>>(new Set(ZONES.map(z => z.id)));
+  const [filtreObert, setFiltreObert] = useState(false);
+  const [leafletReady, setLeafletReady] = useState(false);
 
-  async function simularCheckin(cala: Cala) {
-    await marcarVisitada(cala.id);
-    setCheckinNom(cala.nom);
-    setTimeout(() => setCheckinNom(null), 2500);
+  const mapContainerRef = useRef<any>(null);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<Map<string, any>>(new Map());
+
+  useEffect(() => {
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+      document.head.appendChild(link);
+    }
+    if (window.L) { setLeafletReady(true); return; }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    script.onload = () => setLeafletReady(true);
+    document.head.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    if (!leafletReady || !mapContainerRef.current || mapRef.current) return;
+    const L = window.L;
+    const MALLORCA_BOUNDS = [[39.18, 2.25], [40.05, 3.50]] as [[number,number],[number,number]];
+
+    mapRef.current = L.map(mapContainerRef.current, {
+      maxBounds: MALLORCA_BOUNDS,
+      maxBoundsViscosity: 1.0,
+      minZoom: 9,
+      maxZoom: 17,
+    }).setView([39.58, 2.87], 10);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OSM',
+      maxZoom: 17,
+      bounds: MALLORCA_BOUNDS,
+    }).addTo(mapRef.current);
+  }, [leafletReady]);
+
+  useEffect(() => {
+    if (!mapRef.current || !leafletReady) return;
+    const L = window.L;
+    const map = mapRef.current;
+
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current.clear();
+
+    TOTES_LES_CALAS.filter(c => activeZones.has(c.zona)).forEach(cala => {
+      const zona = zonaById[cala.zona];
+      const visitada = visitadesIds.has(cala.id);
+
+      const marker = L.circleMarker([cala.lat, cala.lng], {
+        radius: visitada ? 9 : 7,
+        fillColor: zona.color,
+        color: '#fff',
+        weight: visitada ? 2.5 : 1.5,
+        fillOpacity: visitada ? 1 : 0.75,
+      }).addTo(map);
+
+      const el = document.createElement('div');
+      el.style.cssText = 'font-family:system-ui,sans-serif;min-width:155px';
+      el.innerHTML = `
+        <div style="font-weight:600;font-size:14px;margin-bottom:3px;color:#111">${cala.nom}</div>
+        <div style="color:${zona.color};font-size:12px;margin-bottom:2px;font-weight:500">${zona.nom}</div>
+        <div style="color:${DIF_COLOR[cala.dificultat]};font-size:12px;margin-bottom:10px">${cala.dificultat}</div>
+      `;
+      const btn = document.createElement('button');
+      btn.textContent = visitada ? 'Desfer visita' : '✓ Marcar visitada';
+      btn.style.cssText = `
+        width:100%;padding:6px 0;
+        background:${visitada ? '#f5f5f5' : '#208AEF'};
+        color:${visitada ? '#888' : '#fff'};
+        border:${visitada ? '1px solid #ddd' : 'none'};
+        border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;
+      `;
+      btn.onclick = async () => {
+        map.closePopup();
+        if (visitada) {
+          await desmarcarVisitada(cala.id);
+        } else {
+          await marcarVisitada(cala.id);
+          setCheckinNom(cala.nom);
+          setTimeout(() => setCheckinNom(null), 2500);
+        }
+      };
+      el.appendChild(btn);
+      marker.bindPopup(el);
+      markersRef.current.set(cala.id, marker);
+    });
+  }, [leafletReady, activeZones, visitadesIds, marcarVisitada, desmarcarVisitada]);
+
+  function toggleZona(zonaId: ZonaId) {
+    setActiveZones(prev => {
+      const next = new Set(prev);
+      if (next.has(zonaId)) next.delete(zonaId);
+      else next.add(zonaId);
+      return next;
+    });
   }
 
+  function toggleTotes() {
+    setActiveZones(prev =>
+      prev.size === ZONES.length
+        ? new Set()
+        : new Set(ZONES.map(z => z.id))
+    );
+  }
+
+  const totesActives = activeZones.size === ZONES.length;
+  const calesVisibles = TOTES_LES_CALAS.filter(c => activeZones.has(c.zona)).length;
+
   return (
-    <SafeAreaView style={s.container}>
-      <ScrollView contentContainerStyle={s.scroll}>
-        <Text style={s.titol}>Mapa</Text>
-        <View style={s.avisWeb}>
-          <Text style={s.avisIcon}>📱</Text>
-          <Text style={s.avisText}>
-            El mapa interactiu amb check-in per GPS és disponible a l'app mòbil.
-            Aquí pots simular visites per provar la col·lecció.
-          </Text>
-        </View>
+    <SafeAreaView style={s.root}>
+      <View ref={mapContainerRef} style={s.mapa} />
 
-        {checkinNom && (
-          <View style={s.confirmacio}>
-            <Text style={s.confirmacioText}>✅ {checkinNom} visitada!</Text>
+      {/* Panel de filtres (desplegable) */}
+      {filtreObert && (
+        <View style={s.panel}>
+          <View style={s.panelCapcalera}>
+            <Text style={s.panelTitol}>Zones</Text>
+            <TouchableOpacity onPress={toggleTotes} style={s.btnTotes}>
+              <Text style={s.btnTotesText}>{totesActives ? 'Cap' : 'Totes'}</Text>
+            </TouchableOpacity>
           </View>
-        )}
+          {ZONES.map(zona => {
+            const activa = activeZones.has(zona.id);
+            return (
+              <TouchableOpacity
+                key={zona.id}
+                onPress={() => toggleZona(zona.id)}
+                style={s.zonaFila}
+                activeOpacity={0.7}
+              >
+                <View style={[s.zonaDot, { backgroundColor: zona.color, opacity: activa ? 1 : 0.25 }]} />
+                <Text style={[s.zonaNom, !activa && s.zonaNomInactiva]}>{zona.nom}</Text>
+                <View style={[s.toggle, activa && s.toggleActiu]}>
+                  {activa && <View style={s.toggleThumb} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+          <View style={s.panelPeu}>
+            <Text style={s.panelPeuText}>{calesVisibles} calas visibles</Text>
+          </View>
+        </View>
+      )}
 
-        {ZONES.filter(z => TOTES_LES_CALAS.some(c => c.zona === z.id)).map(zona => {
-          const calesZona = TOTES_LES_CALAS.filter(c => c.zona === zona.id);
-          return (
-            <View key={zona.id} style={s.zonaBloc}>
-              <View style={s.zonaCapcalera}>
-                <View style={[s.zonaColor, { backgroundColor: zona.color }]} />
-                <Text style={s.zonaNom}>{zona.nom}</Text>
-              </View>
-              {calesZona.map(cala => {
-                const visitada = visitadesIds.has(cala.id);
-                return (
-                  <View key={cala.id} style={[s.calaFila, visitada && s.calaVisitada]}>
-                    <View style={s.calaEsquerra}>
-                      <Text style={s.calaIcon}>{visitada ? '✓' : '○'}</Text>
-                      <View>
-                        <Text style={[s.calaNom, visitada && s.calaNomVerd]}>
-                          {cala.nom}
-                        </Text>
-                        <Text style={s.calaDif}>{cala.dificultat}</Text>
-                      </View>
-                    </View>
-                    {visitada ? (
-                      <TouchableOpacity
-                        style={s.btnDesmarcar}
-                        onPress={() => desmarcarVisitada(cala.id)}
-                      >
-                        <Text style={s.btnDesmarcarText}>Desfer</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity
-                        style={s.btnCheckin}
-                        onPress={() => simularCheckin(cala)}
-                      >
-                        <Text style={s.btnCheckinText}>Simula visita</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          );
-        })}
-      </ScrollView>
+      {/* Botó flotant de filtre */}
+      <TouchableOpacity
+        style={[s.botoFiltre, filtreObert && s.botoFiltreActiu]}
+        onPress={() => setFiltreObert(o => !o)}
+        activeOpacity={0.85}
+      >
+        <Text style={s.botoFiltreIcon}>{filtreObert ? '✕' : '⊞'}</Text>
+        <Text style={[s.botoFiltreText, filtreObert && s.botoFiltreTextActiu]}>
+          {filtreObert ? 'Tancar' : 'Zones'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Banner de check-in */}
+      {checkinNom && (
+        <View style={s.banner}>
+          <Text style={s.bannerText}>✓ {checkinNom} visitada!</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  scroll: { padding: 16, paddingBottom: 32 },
-  titol: { fontSize: 28, fontWeight: '800', color: '#1A1A2E', marginBottom: 16 },
+  root: { flex: 1 },
+  mapa: { flex: 1 },
 
-  avisWeb: {
-    backgroundColor: '#EBF4FF',
-    borderRadius: 12,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 16,
+  panel: {
+    position: 'absolute',
+    bottom: 72,
+    right: 16,
+    width: 220,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 2000,
+    overflow: 'hidden',
   },
-  avisIcon: { fontSize: 20 },
-  avisText: { flex: 1, fontSize: 13, color: '#1E5FA6', lineHeight: 18 },
-
-  confirmacio: {
-    backgroundColor: '#27AE60',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-    alignItems: 'center',
-  },
-  confirmacioText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-
-  zonaBloc: { marginBottom: 20 },
-  zonaCapcalera: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  zonaColor: { width: 12, height: 12, borderRadius: 6 },
-  zonaNom: { fontSize: 17, fontWeight: '700', color: '#1A1A2E' },
-
-  calaFila: {
+  panelCapcalera: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 6,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#eee',
   },
-  calaVisitada: { backgroundColor: '#F0FAF4' },
-  calaEsquerra: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  calaIcon: { fontSize: 16, color: '#27AE60', width: 20, textAlign: 'center' },
-  calaNom: { fontSize: 14, fontWeight: '500', color: '#333' },
-  calaNomVerd: { color: '#27AE60' },
-  calaDif: { fontSize: 11, color: '#aaa', marginTop: 2 },
-
-  btnCheckin: {
-    backgroundColor: '#1E8AFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  btnCheckinText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  btnDesmarcar: {
+  panelTitol: { fontSize: 14, fontWeight: '700', color: '#111' },
+  btnTotes: {
     backgroundColor: '#F0F0F0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  btnDesmarcarText: { color: '#888', fontSize: 12 },
+  btnTotesText: { fontSize: 12, color: '#555', fontWeight: '600' },
+  zonaFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  zonaDot: { width: 12, height: 12, borderRadius: 6 },
+  zonaNom: { flex: 1, fontSize: 13, color: '#111', fontWeight: '500' },
+  zonaNomInactiva: { color: '#bbb' },
+  toggle: {
+    width: 36,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ddd',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleActiu: { backgroundColor: '#208AEF' },
+  toggleThumb: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    alignSelf: 'flex-end',
+  },
+  panelPeu: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#eee',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  panelPeuText: { fontSize: 11, color: '#999', textAlign: 'center' },
+
+  botoFiltre: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 2000,
+  },
+  botoFiltreActiu: { backgroundColor: '#1A1A2E' },
+  botoFiltreIcon: { fontSize: 16, color: '#208AEF' },
+  botoFiltreText: { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
+  botoFiltreTextActiu: { color: '#fff' },
+
+  banner: {
+    position: 'absolute',
+    bottom: 80,
+    left: 20,
+    right: 20,
+    backgroundColor: '#27AE60',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    zIndex: 1500,
+  },
+  bannerText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
