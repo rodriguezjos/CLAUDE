@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TOTES_LES_CALAS } from '../data/calas';
 import { ZONES, zonaById } from '../data/zones';
-import { ZonaId } from '../data/types';
+import { Cala, ZonaId } from '../data/types';
 import { useProgresContext } from '../store/ProgresContext';
 
 declare global { interface Window { L: any } }
@@ -20,6 +20,7 @@ export default function MapaScreen() {
   const [checkinNom, setCheckinNom] = useState<string | null>(null);
   const [activeZones, setActiveZones] = useState<Set<ZonaId>>(new Set(ZONES.map(z => z.id)));
   const [filtreObert, setFiltreObert] = useState(false);
+  const [suggestio, setSuggestio] = useState<Cala | null>(null);
   const [leafletReady, setLeafletReady] = useState(false);
 
   const mapContainerRef = useRef<any>(null);
@@ -132,6 +133,23 @@ export default function MapaScreen() {
   const totesActives = activeZones.size === ZONES.length;
   const calesVisibles = TOTES_LES_CALAS.filter(c => activeZones.has(c.zona)).length;
 
+  function suggereixCala() {
+    const candidates = TOTES_LES_CALAS.filter(c => !visitadesIds.has(c.id));
+    if (candidates.length === 0) return;
+    let nova = candidates[Math.floor(Math.random() * candidates.length)];
+    // evita repetir la mateixa suggestió
+    if (suggestio && candidates.length > 1) {
+      while (nova.id === suggestio.id) {
+        nova = candidates[Math.floor(Math.random() * candidates.length)];
+      }
+    }
+    setSuggestio(nova);
+    setFiltreObert(false);
+    if (mapRef.current) {
+      mapRef.current.flyTo([nova.lat, nova.lng], 14, { duration: 1.2 });
+    }
+  }
+
   return (
     <SafeAreaView style={s.root}>
       <View ref={mapContainerRef} style={s.mapa} />
@@ -168,10 +186,49 @@ export default function MapaScreen() {
         </View>
       )}
 
+      {/* Targeta de suggestió */}
+      {suggestio && (() => {
+        const zona = zonaById[suggestio.zona];
+        return (
+          <View style={s.suggestioCard}>
+            <View style={s.suggestioCapcalera}>
+              <Text style={s.suggestioLabel}>✦ Suggeriment</Text>
+              <TouchableOpacity onPress={() => setSuggestio(null)} hitSlop={8}>
+                <Text style={s.suggestioCreu}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={s.suggestioNom}>{suggestio.nom}</Text>
+            <View style={s.suggestioZonaFila}>
+              <View style={[s.suggestioDot, { backgroundColor: zona.color }]} />
+              <Text style={[s.suggestioZona, { color: zona.color }]}>{zona.nom}</Text>
+              <Text style={[s.suggestioDif, { color: DIF_COLOR[suggestio.dificultat] }]}>
+                · {suggestio.dificultat}
+              </Text>
+            </View>
+            {suggestio.descripcio ? (
+              <Text style={s.suggestioDesc}>{suggestio.descripcio}</Text>
+            ) : null}
+            <TouchableOpacity style={s.suggestioBtn} onPress={suggereixCala} activeOpacity={0.8}>
+              <Text style={s.suggestioBtnText}>Altra suggerència →</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })()}
+
+      {/* Botó flotant de suggestió */}
+      <TouchableOpacity
+        style={s.botoSuggestio}
+        onPress={suggereixCala}
+        activeOpacity={0.85}
+      >
+        <Text style={s.botoSuggestioIcon}>◎</Text>
+        <Text style={s.botoSuggestioText}>Suggereix</Text>
+      </TouchableOpacity>
+
       {/* Botó flotant de filtre */}
       <TouchableOpacity
         style={[s.botoFiltre, filtreObert && s.botoFiltreActiu]}
-        onPress={() => setFiltreObert(o => !o)}
+        onPress={() => { setFiltreObert(o => !o); setSuggestio(null); }}
         activeOpacity={0.85}
       >
         <Text style={s.botoFiltreIcon}>{filtreObert ? '✕' : '⊞'}</Text>
@@ -283,6 +340,70 @@ const s = StyleSheet.create({
   botoFiltreIcon: { fontSize: 16, color: '#208AEF' },
   botoFiltreText: { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
   botoFiltreTextActiu: { color: '#fff' },
+
+  botoSuggestio: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1A1A2E',
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 2000,
+  },
+  botoSuggestioIcon: { fontSize: 15, color: '#F5A623' },
+  botoSuggestioText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+
+  suggestioCard: {
+    position: 'absolute',
+    bottom: 72,
+    left: 16,
+    width: 260,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 2000,
+  },
+  suggestioCapcalera: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  suggestioLabel: { fontSize: 11, fontWeight: '700', color: '#F5A623', letterSpacing: 0.5 },
+  suggestioCreu: { fontSize: 14, color: '#bbb', fontWeight: '700' },
+  suggestioNom: { fontSize: 17, fontWeight: '800', color: '#1A1A2E', marginBottom: 6, lineHeight: 22 },
+  suggestioZonaFila: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  suggestioDot: { width: 10, height: 10, borderRadius: 5 },
+  suggestioZona: { fontSize: 12, fontWeight: '600' },
+  suggestioDif: { fontSize: 12 },
+  suggestioDesc: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  suggestioBtn: {
+    marginTop: 4,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  suggestioBtnText: { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
 
   banner: {
     position: 'absolute',
